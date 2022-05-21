@@ -145,7 +145,6 @@ static int Carray_new(lua_State* L)
 
     bool   isInteger   = false;
     bool   isUnsigned  = false;
-    bool   isFloat     = false;
     size_t elementSize = 0;
 
     carray_type normalizedType = 0;
@@ -162,7 +161,7 @@ static int Carray_new(lua_State* L)
         case TYPE_SHORT:         normalizedType = CARRAY_SHORT;  isInteger = true; elementSize = sizeof(short); break;
     
         case TYPE_UNSIGNED_SHORT:
-        case TYPE_USHORT:        normalizedType = CARRAY_USHORT; isInteger = true; elementSize = sizeof(unsigned short); break;
+        case TYPE_USHORT:        normalizedType = CARRAY_USHORT; isInteger = true; elementSize = sizeof(unsigned short); isUnsigned = true; break;
     
         case TYPE_INT:           normalizedType = CARRAY_INT;    isInteger = true; elementSize = sizeof(int); break;
         
@@ -182,11 +181,11 @@ static int Carray_new(lua_State* L)
         case TYPE_UNSIGNED_LLONG:
         case TYPE_ULLONG:        normalizedType = CARRAY_ULLONG; isInteger = true; elementSize = sizeof(unsigned long); isUnsigned = true; break;
 #endif
-        case TYPE_FLOAT:         normalizedType = CARRAY_FLOAT;  isFloat = true; elementSize = sizeof(float); break;
-        case TYPE_DOUBLE:        normalizedType = CARRAY_DOUBLE; isFloat = true; elementSize = sizeof(double); break;
+        case TYPE_FLOAT:         normalizedType = CARRAY_FLOAT;                    elementSize = sizeof(float); break;
+        case TYPE_DOUBLE:        normalizedType = CARRAY_DOUBLE;                   elementSize = sizeof(double); break;
         
         case TYPE_INTEGER: isInteger = true; elementSize = sizeof(lua_Integer); break;
-        case TYPE_NUMBER:  isFloat   = true; elementSize = sizeof(lua_Number); break;
+        case TYPE_NUMBER:                    elementSize = sizeof(lua_Number); break;
         
         case TYPE_INT8:    elementSize = CHARSIZE(8); isInteger = true; break;
         case TYPE_UINT8:   elementSize = CHARSIZE(8); isInteger = true; isUnsigned = true; break;
