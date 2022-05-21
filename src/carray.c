@@ -245,7 +245,7 @@ static int Carray_new(lua_State* L)
     carray* created = NULL;
     
     if (normalizedType && elementSize > 0) {
-        created = carray_capi_impl.newCarray(L, normalizedType, elementCount, NULL);
+        created = carray_capi_impl.newCarray(L, normalizedType, CARRAY_DEFAULT, elementCount, NULL);
     }
     if (!created) {
         return luaL_error(L, "cannot create carray for type '%s'", lua_tostring(L, typeArg));
@@ -254,10 +254,35 @@ static int Carray_new(lua_State* L)
 }
 
 /* ============================================================================================ */
+
+static CarrayUserData* checkReadableUdata(lua_State* L, int index)
+{
+    CarrayUserData* udata = luaL_checkudata(L, index, CARRAY_CLASS_NAME);
+    if (udata->impl) {
+        return udata;   
+    } else {
+        luaL_argerror(L, index, "invalid carray");
+    }
+}
+
+/* ============================================================================================ */
+
+static CarrayUserData* checkWritableUdata(lua_State* L, int index)
+{
+    CarrayUserData* udata = checkReadableUdata(L, index);
+    if (!(udata->impl->attr & CARRAY_READONLY)) {
+        return udata;
+    } else {
+        luaL_argerror(L, index, "carray is not writable");
+    }
+}
+
+/* ============================================================================================ */
+
 static const char* typeToString(carray* impl)
 {
     if (impl) {
-        switch (impl->elementType) {
+        switch (impl->type) {
             case CARRAY_UCHAR:   return "unsigned char";
             case CARRAY_SCHAR:   return "signed char";
             
@@ -286,12 +311,8 @@ static const char* typeToString(carray* impl)
 
 static int Carray_len(lua_State* L)
 {
-    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
-    if (udata->impl) {
-        lua_pushinteger(L, udata->impl->elementCount);
-    } else {
-        lua_pushinteger(L, 0);
-    }
+    CarrayUserData* udata = checkReadableUdata(L, 1);
+    lua_pushinteger(L, udata->impl->elementCount);
     return 1;
 }
 
@@ -299,11 +320,11 @@ static int Carray_len(lua_State* L)
 
 static int Carray_getstring(lua_State* L)
 {
-    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    CarrayUserData* udata = checkReadableUdata(L, 1);
     lua_Integer index1;
     lua_Integer index2;
     
-    const size_t count = udata->impl ? udata->impl->elementCount : 0;
+    const size_t count = udata->impl->elementCount;
     
     if (lua_gettop(L) == 1) {
         index1 = 1;
@@ -353,7 +374,8 @@ static int Carray_getstring(lua_State* L)
 
 static int Carray_get(lua_State* L)
 {
-    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    CarrayUserData* udata = checkReadableUdata(L, 1);
+    
     lua_Integer index1 = luaL_checkinteger(L, 2);
     lua_Integer index2;
     
@@ -362,96 +384,94 @@ static int Carray_get(lua_State* L)
     } else {
         index2 = index1;
     }
-    if (udata->impl) {
-        size_t count = udata->impl->elementCount;
-        if (index1 >= 0) {
-            index1 -= 1;
-        } else {
-            index1 = count + index1;
+    size_t count = udata->impl->elementCount;
+    if (index1 >= 0) {
+        index1 -= 1;
+    } else {
+        index1 = count + index1;
+    }
+    if (index2 >= 0) {
+        index2 -= 1;
+    } else {
+        index2 = count + index2;
+    }
+    if (   0 <= index1 && index1 < count
+        && 0 <= index2 && index2 < count)
+    {
+        carray_type elementType = udata->impl->type;
+        size_t      elementSize = udata->impl->elementSize;
+        char* ptr = udata->impl->buffer + index1 * elementSize;
+        const int count = index2 - index1  + 1;
+        int c = count;
+        if (count > 0) {
+            luaL_checkstack(L, count, NULL);
         }
-        if (index2 >= 0) {
-            index2 -= 1;
-        } else {
-            index2 = count + index2;
-        }
-        if (   0 <= index1 && index1 < count
-            && 0 <= index2 && index2 < count)
-        {
-            carray_type elementType = udata->impl->elementType;
-            size_t      elementSize = udata->impl->elementSize;
-            char* ptr = udata->impl->buffer + index1 * elementSize;
-            const int count = index2 - index1  + 1;
-            int c = count;
-            if (count > 0) {
-                luaL_checkstack(L, count, NULL);
+        switch (elementType) {
+            case CARRAY_UCHAR: {
+                unsigned char* p = (unsigned char*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
             }
-            switch (elementType) {
-                case CARRAY_UCHAR: {
-                    unsigned char* p = (unsigned char*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_SCHAR: {
-                    signed char* p = (signed char*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_SHORT: {
-                    short* p = (short*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_USHORT: {
-                    unsigned short* p = (unsigned short*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_INT: {
-                    int* p = (int*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_UINT: {
-                    unsigned int* p = (unsigned int*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_LONG: {
-                    long* p = (long*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_ULONG: {
-                    unsigned long* p = (unsigned long*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
+            case CARRAY_SCHAR: {
+                signed char* p = (signed char*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_SHORT: {
+                short* p = (short*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_USHORT: {
+                unsigned short* p = (unsigned short*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_INT: {
+                int* p = (int*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_UINT: {
+                unsigned int* p = (unsigned int*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_LONG: {
+                long* p = (long*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+            case CARRAY_ULONG: {
+                unsigned long* p = (unsigned long*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
 #if CARRAY_CAPI_HAVE_LONG_LONG
-                case CARRAY_LLONG: {
-                    long long* p = (long long*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_ULLONG: {
-                    unsigned long long* p = (unsigned long long*)ptr;
-                    while (--c >= 0) { lua_pushinteger(L, *(p++)); }
-                    break;
-                }
-#endif                
-                case CARRAY_FLOAT: {
-                    float* p = (float*)ptr;
-                    while (--c >= 0) { lua_pushnumber(L, *(p++)); }
-                    break;
-                }
-                case CARRAY_DOUBLE: {
-                    double* p = (double*)ptr;
-                    while (--c >= 0) { lua_pushnumber(L, *(p++)); }
-                    break;
-                }
-                default: return luaL_argerror(L, 1, "internal type error");
+            case CARRAY_LLONG: {
+                long long* p = (long long*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
             }
-            return count > 0 ? count : 0;
+            case CARRAY_ULLONG: {
+                unsigned long long* p = (unsigned long long*)ptr;
+                while (--c >= 0) { lua_pushinteger(L, *(p++)); }
+                break;
+            }
+#endif                
+            case CARRAY_FLOAT: {
+                float* p = (float*)ptr;
+                while (--c >= 0) { lua_pushnumber(L, *(p++)); }
+                break;
+            }
+            case CARRAY_DOUBLE: {
+                double* p = (double*)ptr;
+                while (--c >= 0) { lua_pushnumber(L, *(p++)); }
+                break;
+            }
+            default: return luaL_argerror(L, 1, "internal type error");
         }
+        return count > 0 ? count : 0;
     }
     return luaL_argerror(L, 2, "index out of bounds");
 }
@@ -461,39 +481,38 @@ static int Carray_get(lua_State* L)
 
 static int Carray_setstring(lua_State* L)
 {
-    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    CarrayUserData* udata = checkWritableUdata(L, 1);
+    
     lua_Integer index = luaL_checkinteger(L, 2);
 
-    if (udata->impl) {
-        if (udata->impl->elementSize != 1) {
-            return luaL_argerror(L, 1, "carray type is not char");
-        }
-        size_t count = udata->impl->elementCount;
-        if (index >= 0) {
-            index -= 1;
-        } else {
-            index = count + index;
-        }
-        if (0 <= index && index < count)
-        {
-            char* ptr    = udata->impl->buffer + index;
-            int   args   = lua_gettop(L) - 2;
-            char* ptrEnd = udata->impl->buffer + count;
-            
-            for (int i = 0; i < args; ++i) {
-                if (lua_type(L, 3 + i) != LUA_TSTRING) {
-                    return luaL_argerror(L, 3 + i, "string expected");
-                }
-                size_t len;
-                const char* s = lua_tolstring(L, 3 + i, &len);
-                if (ptr + len > ptrEnd) {
-                    return luaL_argerror(L, 3 + i, "index out of bounds");
-                }
-                memcpy(ptr, s, len);
-                ptr += len;
+    if (udata->impl->elementSize != 1) {
+        return luaL_argerror(L, 1, "carray type is not char");
+    }
+    size_t count = udata->impl->elementCount;
+    if (index >= 0) {
+        index -= 1;
+    } else {
+        index = count + index;
+    }
+    if (0 <= index && index < count)
+    {
+        char* ptr    = udata->impl->buffer + index;
+        int   args   = lua_gettop(L) - 2;
+        char* ptrEnd = udata->impl->buffer + count;
+        
+        for (int i = 0; i < args; ++i) {
+            if (lua_type(L, 3 + i) != LUA_TSTRING) {
+                return luaL_argerror(L, 3 + i, "string expected");
             }
-            return 0;
+            size_t len;
+            const char* s = lua_tolstring(L, 3 + i, &len);
+            if (ptr + len > ptrEnd) {
+                return luaL_argerror(L, 3 + i, "index out of bounds");
+            }
+            memcpy(ptr, s, len);
+            ptr += len;
         }
+        return 0;
     }
     return luaL_argerror(L, 2, "index out of bounds");
 }
@@ -502,96 +521,132 @@ static int Carray_setstring(lua_State* L)
 
 static int Carray_set(lua_State* L)
 {
-    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    CarrayUserData* udata = checkWritableUdata(L, 1);
+
     lua_Integer index = luaL_checkinteger(L, 2);
     
-    if (udata->impl) {
-        size_t count = udata->impl->elementCount;
-        if (index >= 0) {
-            index -= 1;
-        } else {
-            index = count + index;
-        }
-        if (0 <= index && index < count)
-        {
-            size_t  elementSize = udata->impl->elementSize;
-            char*   ptr         = udata->impl->buffer + index * elementSize;
-            int     args        = lua_gettop(L) - 2;
+    size_t count = udata->impl->elementCount;
+    if (index >= 0) {
+        index -= 1;
+    } else {
+        index = count + index;
+    }
+    if (0 <= index && index < count)
+    {
+        size_t  elementSize = udata->impl->elementSize;
+        char*   ptr         = udata->impl->buffer + index * elementSize;
+        int     args        = lua_gettop(L) - 2;
 
-            if (index + args > count) {
-                return luaL_argerror(L, lua_gettop(L) + 1 - (index + args - count), "index out of bounds");
-            }
-            int a = 2;
-            switch (udata->impl->elementType) {
-                case CARRAY_UCHAR: {
-                    unsigned char* p = (unsigned char*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_SCHAR: {
-                    signed char* p = (signed char*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_SHORT: {
-                    short* p = (short*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_USHORT: {
-                    unsigned short* p = (unsigned short*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_INT: {
-                    int* p = (int*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_UINT: {
-                    unsigned int* p = (unsigned int*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_LONG: {
-                    long* p = (long*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_ULONG: {
-                    unsigned long* p = (unsigned long*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-#if CARRAY_CAPI_HAVE_LONG_LONG
-                case CARRAY_LLONG: {
-                    long long* p = (long long*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-                case CARRAY_ULLONG: {
-                    unsigned long long* p = (unsigned long long*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
-                    break;
-                }
-#endif                
-                case CARRAY_FLOAT: {
-                    float* p = (float*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checknumber(L, ++a); }
-                    break;
-                }
-                case CARRAY_DOUBLE: {
-                    double* p = (double*)ptr;
-                    while (--args >= 0) { *(p++) = luaL_checknumber(L, ++a); }
-                    break;
-                }
-                default: return luaL_argerror(L, 1, "internal type error");
-            }
-            
-            return 0;
+        if (index + args > count) {
+            return luaL_argerror(L, lua_gettop(L) + 1 - (index + args - count), "index out of bounds");
         }
+        int a = 2;
+        switch (udata->impl->type) {
+            case CARRAY_UCHAR: {
+                unsigned char* p = (unsigned char*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_SCHAR: {
+                signed char* p = (signed char*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_SHORT: {
+                short* p = (short*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_USHORT: {
+                unsigned short* p = (unsigned short*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_INT: {
+                int* p = (int*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_UINT: {
+                unsigned int* p = (unsigned int*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_LONG: {
+                long* p = (long*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_ULONG: {
+                unsigned long* p = (unsigned long*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+#if CARRAY_CAPI_HAVE_LONG_LONG
+            case CARRAY_LLONG: {
+                long long* p = (long long*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+            case CARRAY_ULLONG: {
+                unsigned long long* p = (unsigned long long*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checkinteger(L, ++a); }
+                break;
+            }
+#endif                
+            case CARRAY_FLOAT: {
+                float* p = (float*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checknumber(L, ++a); }
+                break;
+            }
+            case CARRAY_DOUBLE: {
+                double* p = (double*)ptr;
+                while (--args >= 0) { *(p++) = luaL_checknumber(L, ++a); }
+                break;
+            }
+            default: return luaL_argerror(L, 1, "internal type error");
+        }
+        
+        return 0;
     }
     return luaL_argerror(L, 2, "index out of bounds");
+}
+
+/* ============================================================================================ */
+
+static int Carray_type(lua_State* L)
+{
+    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    lua_pushstring(L, typeToString(udata->impl));
+    return 1;
+}
+
+/* ============================================================================================ */
+
+static int Carray_bitwidth(lua_State* L)
+{
+    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    lua_pushinteger(L, udata->impl ? (udata->impl->elementSize * CHAR_BIT) : 0);
+    return 1;
+}
+
+/* ============================================================================================ */
+
+static int Carray_writable(lua_State* L)
+{
+    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    lua_pushboolean(L, udata->impl && !(udata->impl->attr & CARRAY_READONLY));
+    return 1;
+}
+
+/* ============================================================================================ */
+
+static int Carray_resizable(lua_State* L)
+{
+    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    // TODO future implementation
+    lua_pushboolean(L, false);
+    return 1;
 }
 
 /* ============================================================================================ */
@@ -626,11 +681,15 @@ static const luaL_Reg ModuleFunctions[] =
 
 static const luaL_Reg CarrayMethods[] = 
 {   
-    { "len",        Carray_len },
-    { "get",        Carray_get },
-    { "set",        Carray_set },
+    { "len",        Carray_len       },
+    { "get",        Carray_get       },
+    { "set",        Carray_set       },
     { "tostring",   Carray_getstring },
     { "setstring",  Carray_setstring },
+    { "type",       Carray_type      },
+    { "bitwidth",   Carray_bitwidth  },
+    { "writable",   Carray_writable  },
+    { "resizable",  Carray_resizable },
     { NULL,         NULL } /* sentinel */
 };
 

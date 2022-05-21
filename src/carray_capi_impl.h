@@ -10,12 +10,16 @@
 struct carray
 {
     AtomicCounter usageCounter;
-    carray_type   elementType;
+    carray_type   type;
+    carray_attr   attr;
     size_t        elementSize;
     bool          isInteger;
     bool          isUnsigned;
+    bool          isRef;
 
-    bool          managed;
+    void (*releaseCallback)(void* dataRef, size_t elementCount);
+    void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount);
+
     char*         buffer;
     size_t        elementCount;
     size_t        elementCapacity;

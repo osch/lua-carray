@@ -10,7 +10,9 @@
 
 /* ============================================================================================ */
 
-static carray* newCarray(lua_State* L, carray_type type, size_t elementCount, void* data)
+static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data,
+                                 void* dataRef, void (*releaseCallback)(void* dataRef, size_t elementCount),
+                                                void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount))
 {
     size_t elementSize = 0;
     bool   isUnsigned  = false;
@@ -53,43 +55,69 @@ static carray* newCarray(lua_State* L, carray_type type, size_t elementCount, vo
         return NULL;
     }
     memset(udata->impl, 0, sizeof(carray));
-    udata->impl->elementType = type;
-    udata->impl->elementSize = elementSize;
-    udata->impl->isInteger = isInteger;
-    udata->impl->isUnsigned = isUnsigned;
     udata->impl->usageCounter = 1;
+    udata->impl->type         = type;
+    udata->impl->attr         = attr;
+    udata->impl->elementSize  = elementSize;
+    udata->impl->isInteger    = isInteger;
+    udata->impl->isUnsigned   = isUnsigned;
+    udata->impl->isRef        = dataRef != NULL;
     
-    if (elementCount > 0) {
-        udata->impl->buffer = malloc(elementSize * elementCount);
-        if (!udata->impl->buffer) {
-            luaL_error(L, "cannot allocate carray");
-            return NULL;
+    if (dataRef == NULL) 
+    {
+        if (elementCount > 0) {
+            udata->impl->buffer = malloc(elementSize * elementCount);
+            if (!udata->impl->buffer) {
+                luaL_error(L, "cannot allocate carray");
+                return NULL;
+            }
+            if (data) {
+                *data = udata->impl->buffer;
+            } else {
+                memset(udata->impl->buffer, 0, elementSize * elementCount);
+            }
         }
-        if (data) {
-            memcpy(udata->impl->buffer, data, elementSize * elementCount);
-        } else {
-            memset(udata->impl->buffer, 0, elementSize * elementCount);
-        }
-        udata->impl->elementCount    = elementCount;
-        udata->impl->elementCapacity = elementCount;
+    } else {
+        udata->impl->buffer          = dataRef;
+        udata->impl->releaseCallback = releaseCallback;
+        udata->impl->resizeCallback  = resizeCallback;
     }
+    udata->impl->elementCount    = elementCount;
+    udata->impl->elementCapacity = elementCount;
 }
 
 /* ============================================================================================ */
 
-static carray* toCarray(lua_State* L, int index, carray_info* info)
+static carray* newCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data)
+{
+    return internalNewCarray(L, type, attr, elementCount, data, NULL, NULL, NULL);
+}
+
+/* ============================================================================================ */
+
+static carray* newCarrayRef(lua_State* L, carray_type type, carray_attr attr, void* dataRef, size_t elementCount,
+                            void (*releaseCallback)(void* dataRef, size_t elementCount),
+                            void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount))
+{
+    return internalNewCarray(L, type, attr, elementCount, NULL, (void*)dataRef, releaseCallback, resizeCallback);
+}
+
+/* ============================================================================================ */
+
+static const carray* toReadableCarray(lua_State* L, int index, carray_info* info)
 {
     CarrayUserData* udata = lua_touserdata(L, index);
     if (udata) {
         size_t len = lua_rawlen(L, index);
         if (   len == sizeof(CarrayUserData) 
-            && udata->className == CARRAY_CLASS_NAME)
+            && udata->className == CARRAY_CLASS_NAME
+            && udata->impl)
         {
             if (info) {
                 memset(info, 0, sizeof(carray_info));
                 if (udata->impl) {
-                    info->type         = udata->impl->elementType;
-                    info->isWritable   = true;
+                    info->type         = udata->impl->type;
+                    info->attr         = udata->impl->attr;
                     info->elementSize  = udata->impl->elementSize;
                     info->elementCount = udata->impl->elementCount;
                 }
@@ -102,8 +130,36 @@ static carray* toCarray(lua_State* L, int index, carray_info* info)
 
 /* ============================================================================================ */
 
-static void retainCarray(carray* impl)
+static carray* toWritableCarray(lua_State* L, int index, carray_info* info)
 {
+    CarrayUserData* udata = lua_touserdata(L, index);
+    if (udata) {
+        size_t len = lua_rawlen(L, index);
+        if (   len == sizeof(CarrayUserData) 
+            && udata->className == CARRAY_CLASS_NAME
+            && udata->impl
+            && (!(udata->impl->attr & CARRAY_READONLY)))
+        {
+            if (info) {
+                memset(info, 0, sizeof(carray_info));
+                if (udata->impl) {
+                    info->type         = udata->impl->type;
+                    info->attr         = udata->impl->attr;
+                    info->elementSize  = udata->impl->elementSize;
+                    info->elementCount = udata->impl->elementCount;
+                }
+            }
+            return udata->impl;
+        }
+    }
+    return NULL;
+}
+
+/* ============================================================================================ */
+
+static void retainCarray(const carray* array)
+{
+    carray* impl = (carray*)array;
     if (impl) {
         atomic_inc(&impl->usageCounter);
     }
@@ -111,11 +167,19 @@ static void retainCarray(carray* impl)
 
 /* ============================================================================================ */
 
-static void releaseCarray(carray* impl)
+static void releaseCarray(const carray* array)
 {
+    carray* impl = (carray*)array;
+
     if (impl && atomic_dec(&impl->usageCounter) == 0) {
         if (impl->buffer) {
-            free(impl->buffer);
+            if (impl->isRef) {
+                if (impl->releaseCallback) {
+                    impl->releaseCallback(impl->buffer, impl->elementCount);
+                }
+            } else {
+                free(impl->buffer);
+            }
             impl->buffer = NULL;
             impl->elementCount    = 0;
             impl->elementCapacity = 0;
@@ -126,8 +190,23 @@ static void releaseCarray(carray* impl)
 
 /* ============================================================================================ */
 
-static void* getElementPtr(carray* impl, size_t offset, size_t count)
+static void* getWritableElementPtr(carray* impl, size_t offset, size_t count)
 {
+    if (impl && !(impl->attr & CARRAY_READONLY)
+             && 0 <= offset && offset < impl->elementCount
+             && 0 <  count  && offset + count <= impl->elementCount)
+    {
+        return impl->buffer;
+    }
+    return NULL;
+}
+
+/* ============================================================================================ */
+
+const void* getReadableElementPtr(const carray* array, size_t offset, size_t count)
+{
+    carray* impl = (carray*)array;
+
     if (impl && 0 <= offset && offset < impl->elementCount
              && 0 <  count  && offset + count <= impl->elementCount)
     {
@@ -147,10 +226,13 @@ const carray_capi carray_capi_impl =
     NULL, /* next_capi */
 
     newCarray,
-    toCarray,
+    newCarrayRef,
+    toReadableCarray,
+    toWritableCarray,
     retainCarray,
     releaseCarray,
-    getElementPtr
+    getWritableElementPtr,
+    getReadableElementPtr
 };
 
 /* ============================================================================================ */

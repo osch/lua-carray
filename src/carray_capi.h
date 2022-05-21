@@ -11,7 +11,7 @@
 #endif
 
 #define CARRAY_CAPI_ID_STRING     "_capi_carray"
-#define CARRAY_CAPI_VERSION_MAJOR  -1
+#define CARRAY_CAPI_VERSION_MAJOR  -2
 #define CARRAY_CAPI_VERSION_MINOR   0
 #define CARRAY_CAPI_VERSION_PATCH   1
 
@@ -20,9 +20,14 @@ typedef struct carray_info     carray_info;
 typedef struct carray          carray;
 
 typedef enum carray_type  carray_type;
+typedef enum carray_attr  carray_attr;
 
 #ifndef CARRAY_CAPI_IMPLEMENT_SET_CAPI
 #  define CARRAY_CAPI_IMPLEMENT_SET_CAPI 0
+#endif
+
+#ifndef CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI
+#  define CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI 0
 #endif
 
 #ifndef CARRAY_CAPI_IMPLEMENT_GET_CAPI
@@ -52,10 +57,16 @@ enum carray_type
 #endif
 };
 
+enum carray_attr
+{
+    CARRAY_DEFAULT  = 0,
+    CARRAY_READONLY = 1
+};
+
 struct carray_info
 {
     carray_type type;
-    int         isWritable;
+    carray_attr attr;
     size_t      elementSize;
     size_t      elementCount;
 };
@@ -83,25 +94,66 @@ struct carray_capi
     void* next_capi;
 
     /** 
-     * Creates new carray object.
+     * Creates new carray object which manages the underlying data.
      * 
      * elementCount - number of elements
-     * data         - initial content for number elements,
-     *                if NULL, the elements are initialized with zeros.
+     * data         - if not NULL, contains after the call the pointer
+     *                to the uninitialized array elements. the caller
+     *                is responsible for initializing the elements.
+     *                If NULL, the elements are initialized with zeros.
+     *
+     * Returns NULL pointer on parameter error. 
+     * This function may also raise a Lua error.
      */
-    carray* (*newCarray)(lua_State* L, carray_type t, size_t elementCount, void* data);
+    carray* (*newCarray)(lua_State* L, carray_type t, carray_attr attr, size_t elementCount, void** data);
+    
+    /** 
+     * Creates new carray object with a reference to underlying data
+     * managed by the caller.
+     * 
+     * elementCount    - number of elements
+     * dataRef         - pointer to the element content. The caller guerantees that the content
+     *                   memory remains valid until the release callback is called.
+     * releaseCallback - is called by the carray object if the reference to the underlying
+     *                   data is not any longer needed. This callback may also be NULL
+     *                   for the case of static data.
+     * resizeCallback  - may be NULL if the content is readonly or not resizable.
+     *
+     * Returns NULL pointer on parameter error.
+     * This function may also raise a Lua error.
+     */
+    carray* (*newCarrayRef)(lua_State* L, carray_type t, carray_attr attr, void* dataRef, size_t elementCount,
+                            void (*releaseCallback)(void* dataRef, size_t elementCount),
+                            void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount));
     
     /**
-     * Must return a valid pointer if the Lua object at the given stack
-     * index is a valid carray, otherwise must return NULL.
+     * Returns a valid pointer if the Lua object at the given stack
+     * index is a valid readable carray, otherwise returns NULL.
      *
-     * The returned carray object must be valid as long as the Lua 
+     * info - contains information about the carray after the call
+     *        May be NULL.
+     *
+     * The returned carray object is be valid as long as the Lua 
+     * object at the given stack index remains valid.
+     * To keep the carray object beyond this call, the function 
+     * retainConstCarray() should be called (see below).
+     */
+    const carray* (*toReadableCarray)(lua_State* L, int index, carray_info* info);
+    
+    /**
+     * Returns a valid pointer if the Lua object at the given stack
+     * index is a valid writable carray, otherwise returns NULL.
+     * 
+     * info - contains information about the carray after the call
+     *        May be NULL.
+     *
+     * The returned carray object is valid as long as the Lua 
      * object at the given stack index remains valid.
      * To keep the carray object beyond this call, the function 
      * retainCarray() should be called (see below).
      */
-    carray* (*toCarray)(lua_State* L, int index, carray_info* info);
-    
+    carray* (*toWritableCarray)(lua_State* L, int index, carray_info* info);
+
     /**
      * Increase the reference counter of the carray object.
      *
@@ -109,14 +161,24 @@ struct carray_capi
      * as long as the Lua object on the given stack index is
      * valid (see above).
      */
-    void (*retainCarray)(carray* a);
+    void (*retainCarray)(const carray* a);
 
     /**
      * Decrease the reference counter of the carray object and
      * destructs the carray object if no reference is left.
      */
-    void (*releaseCarray)(carray* a);
+    void (*releaseCarray)(const carray* a);
     
+    /**
+     * Get pointer to elements.
+     * offset - index of the first element, 0 <= offset < elementCount
+     * count  - number of elements, 0 <= offset + count <= elementCount
+     * Returns the pointer to the element in the array at the given offset.
+     * The caller may only read or write at most count elements at this pointer,
+     * otherwise behaviour may be undefined.
+     */
+    void* (*getWritableElementPtr)(carray* a, size_t offset, size_t count);
+
     /**
      * Get pointer to elements.
      * offset - index of the first element, 0 <= offset < elementCount
@@ -125,7 +187,7 @@ struct carray_capi
      * The caller may only read at most count elements at this pointer,
      * otherwise behaviour may be undefined.
      */
-    void* (*getElementPtr)(carray* a, size_t offset, size_t count);
+    const void* (*getReadableElementPtr)(const carray* a, size_t offset, size_t count);
 };
 
 #if CARRAY_CAPI_IMPLEMENT_SET_CAPI
@@ -146,7 +208,7 @@ static int carray_set_capi(lua_State* L, int index, const carray_capi* capi)
 }
 #endif /* CARRAY_CAPI_IMPLEMENT_SET_CAPI */
 
-#if CARRAY_CAPI_IMPLEMENT_GET_CAPI
+#if CARRAY_CAPI_IMPLEMENT_GET_CAPI || CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI
 /**
  * Gives the associated Carray C API for the object at the given stack index.
  * Returns NULL, if the object at the given stack index does not have an 
@@ -191,6 +253,29 @@ static const carray_capi* carray_get_capi(lua_State* L, int index, int* errorRea
     }
     return NULL;
 }
-#endif /* CARRAY_CAPI_IMPLEMENT_GET_CAPI */
+#endif /* CARRAY_CAPI_IMPLEMENT_GET_CAPI || CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI */
+
+#if CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI
+
+static const carray_capi* carray_require_capi(lua_State* L)
+{
+    if (luaL_loadstring(L, "return require('carray')") != 0) {   /* -> chunk */
+        lua_error(L);
+    }
+    lua_call(L, 0, 1); /* -> carray */
+    int errorReason;
+    const carray_capi* capi = carray_get_capi(L, -1, &errorReason);
+    if (!capi) {
+        if (errorReason == 1) {
+            luaL_error(L, "carray capi version mismatch");
+        } else {
+            luaL_error(L, "carray capi not found");
+        }
+    }
+    lua_pop(L, 1);
+    return capi;
+}
+
+#endif /* CARRAY_CAPI_IMPLEMENT_REQUIRE_CAPI */
 
 #endif /* CARRAY_CAPI_H */
