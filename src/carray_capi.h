@@ -11,7 +11,7 @@
 #endif
 
 #define CARRAY_CAPI_ID_STRING     "_capi_carray"
-#define CARRAY_CAPI_VERSION_MAJOR  -2
+#define CARRAY_CAPI_VERSION_MAJOR   0
 #define CARRAY_CAPI_VERSION_MINOR   0
 #define CARRAY_CAPI_VERSION_PATCH   1
 

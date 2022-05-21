@@ -4,11 +4,12 @@
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-This [Lua] module provides an array data type together with a [C API](./src/carray_capi.h)
+This [Lua] module provides an array data type and the implementation of the [Carray C API] 
 for handling arrays of primitive numeric C data types in Lua script code and also in native 
-C code for enhancing native Lua module interoperability. 
+C code for enhancing native Lua module interoperability and performance. 
 
-[Lua]: https://www.lua.org
+[Lua]:          https://www.lua.org
+[Carray C API]: https://github.com/lua-capis/lua-carray-capi
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
