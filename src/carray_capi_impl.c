@@ -11,8 +11,7 @@
 /* ============================================================================================ */
 
 static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data,
-                                 void* dataRef, void (*releaseCallback)(void* dataRef, size_t elementCount),
-                                                void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount))
+                                 void* dataRef, void (*releaseCallback)(void* dataRef, size_t elementCount))
 {
     size_t elementSize = 0;
     bool   isUnsigned  = false;
@@ -80,7 +79,6 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
     } else {
         udata->impl->buffer          = dataRef;
         udata->impl->releaseCallback = releaseCallback;
-        udata->impl->resizeCallback  = resizeCallback;
     }
     udata->impl->elementCount    = elementCount;
     udata->impl->elementCapacity = elementCount;
@@ -90,16 +88,15 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
 
 static carray* newCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data)
 {
-    return internalNewCarray(L, type, attr, elementCount, data, NULL, NULL, NULL);
+    return internalNewCarray(L, type, attr, elementCount, data, NULL, NULL);
 }
 
 /* ============================================================================================ */
 
 static carray* newCarrayRef(lua_State* L, carray_type type, carray_attr attr, void* dataRef, size_t elementCount,
-                            void (*releaseCallback)(void* dataRef, size_t elementCount),
-                            void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount))
+                            void (*releaseCallback)(void* dataRef, size_t elementCount))
 {
-    return internalNewCarray(L, type, attr, elementCount, NULL, (void*)dataRef, releaseCallback, resizeCallback);
+    return internalNewCarray(L, type, attr, elementCount, NULL, (void*)dataRef, releaseCallback);
 }
 
 /* ============================================================================================ */

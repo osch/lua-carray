@@ -18,7 +18,6 @@ struct carray
     bool          isRef;
 
     void (*releaseCallback)(void* dataRef, size_t elementCount);
-    void* (*resizeCallback)(void* dataRef, size_t oldElementCount, size_t newElementCount);
 
     char*         buffer;
     size_t        elementCount;
