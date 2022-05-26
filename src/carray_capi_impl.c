@@ -23,7 +23,7 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
         case CARRAY_UCHAR:   isInteger = true; elementSize = sizeof(unsigned char); isUnsigned = true; break;
         
         case CARRAY_SHORT:   isInteger = true; elementSize = sizeof(short); break;
-        case CARRAY_USHORT:  isInteger = true; elementSize = sizeof(ushort); isUnsigned = true; break;
+        case CARRAY_USHORT:  isInteger = true; elementSize = sizeof(unsigned short); isUnsigned = true; break;
         
         case CARRAY_INT:     isInteger = true; elementSize = sizeof(int); break;
         case CARRAY_UINT:    isInteger = true; elementSize = sizeof(unsigned int); isUnsigned = true; break;

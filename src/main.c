@@ -1,5 +1,3 @@
-#include <jack/jack.h>
-
 #define CARRAY_CAPI_IMPLEMENT_SET_CAPI 1
 
 #include "util.h"
