@@ -261,6 +261,7 @@ static CarrayUserData* checkReadableUdata(lua_State* L, int index)
         return udata;   
     } else {
         luaL_argerror(L, index, "invalid carray");
+        return NULL;
     }
 }
 
@@ -273,6 +274,7 @@ static CarrayUserData* checkWritableUdata(lua_State* L, int index)
         return udata;
     } else {
         luaL_argerror(L, index, "carray is not writable");
+        return NULL;
     }
 }
 

@@ -82,6 +82,7 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
     }
     udata->impl->elementCount    = elementCount;
     udata->impl->elementCapacity = elementCount;
+    return udata->impl;
 }
 
 /* ============================================================================================ */
