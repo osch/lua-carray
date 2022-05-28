@@ -307,6 +307,37 @@ static const char* typeToString(carray* impl)
     }
     return "?";
 }
+/* ============================================================================================ */
+
+static const char* baseTypeToString(carray* impl)
+{
+    if (impl) {
+        switch (impl->type) {
+            case CARRAY_UCHAR:   
+            case CARRAY_USHORT:  
+            case CARRAY_UINT:    
+            case CARRAY_ULONG:   
+#if CARRAY_CAPI_HAVE_LONG_LONG
+            case CARRAY_ULLONG:  
+#endif                           
+                                 return "uint";
+
+            case CARRAY_SCHAR:   
+            case CARRAY_SHORT:   
+            case CARRAY_INT:     
+            case CARRAY_LONG:    
+#if CARRAY_CAPI_HAVE_LONG_LONG
+            case CARRAY_LLONG:   
+#endif                           
+                                 return "int";
+                                 
+            case CARRAY_FLOAT:   
+            case CARRAY_DOUBLE:  return "float";
+            
+        }
+    }
+    return "?";
+}
 
 /* ============================================================================================ */
 
@@ -621,6 +652,14 @@ static int Carray_type(lua_State* L)
     lua_pushstring(L, typeToString(udata->impl));
     return 1;
 }
+/* ============================================================================================ */
+
+static int Carray_basetype(lua_State* L)
+{
+    CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
+    lua_pushstring(L, baseTypeToString(udata->impl));
+    return 1;
+}
 
 /* ============================================================================================ */
 
@@ -688,6 +727,7 @@ static const luaL_Reg CarrayMethods[] =
     { "tostring",   Carray_getstring },
     { "setstring",  Carray_setstring },
     { "type",       Carray_type      },
+    { "basetype",   Carray_basetype  },
     { "bitwidth",   Carray_bitwidth  },
     { "writable",   Carray_writable  },
     { "resizable",  Carray_resizable },
