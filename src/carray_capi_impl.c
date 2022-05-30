@@ -114,10 +114,11 @@ static const carray* toReadableCarray(lua_State* L, int index, carray_info* info
             if (info) {
                 memset(info, 0, sizeof(carray_info));
                 if (udata->impl) {
-                    info->type         = udata->impl->type;
-                    info->attr         = udata->impl->attr;
-                    info->elementSize  = udata->impl->elementSize;
-                    info->elementCount = udata->impl->elementCount;
+                    info->type            = udata->impl->type;
+                    info->attr            = udata->impl->attr;
+                    info->elementSize     = udata->impl->elementSize;
+                    info->elementCount    = udata->impl->elementCount;
+                    info->elementCapacity = udata->impl->elementCapacity;
                 }
             }
             return udata->impl;
@@ -201,7 +202,7 @@ static void* getWritableElementPtr(carray* impl, size_t offset, size_t count)
 
 /* ============================================================================================ */
 
-const void* getReadableElementPtr(const carray* array, size_t offset, size_t count)
+static const void* getReadableElementPtr(const carray* array, size_t offset, size_t count)
 {
     carray* impl = (carray*)array;
 
@@ -209,6 +210,43 @@ const void* getReadableElementPtr(const carray* array, size_t offset, size_t cou
              && 0 <  count  && offset + count <= impl->elementCount)
     {
         return impl->buffer;
+    }
+    return NULL;
+}
+
+/* ============================================================================================ */
+
+static void* resizeCarray(carray* impl, size_t newCount, int shrinkCapacity)
+{
+    if (!impl->isRef && !(impl->attr & CARRAY_READONLY)) {
+        if (newCount > 0 || !shrinkCapacity) {
+            if (  (newCount <  impl->elementCapacity && !shrinkCapacity) 
+                || newCount == impl->elementCapacity) 
+            {
+                impl->elementCount = newCount;
+                return impl->buffer;
+            } else {
+                char* newBuffer = realloc(impl->buffer, impl->elementSize * newCount);
+                if (newBuffer) {
+                    impl->buffer          = newBuffer;
+                    impl->elementCount    = newCount;
+                    impl->elementCapacity = newCount;
+                    return newBuffer;
+                }
+                else if (newCount < impl->elementCapacity) {
+                    impl->elementCount = newCount;
+                    return impl->buffer;
+                }
+            }
+        } else {
+            // newCount == 0 && shrinkCapacity
+            if (impl->buffer) {
+                free(impl->buffer);
+                impl->buffer = NULL;
+                impl->elementCount = 0;
+                impl->elementCapacity = 0;
+            }
+        }
     }
     return NULL;
 }
@@ -230,7 +268,8 @@ const carray_capi carray_capi_impl =
     retainCarray,
     releaseCarray,
     getWritableElementPtr,
-    getReadableElementPtr
+    getReadableElementPtr,
+    resizeCarray
 };
 
 /* ============================================================================================ */

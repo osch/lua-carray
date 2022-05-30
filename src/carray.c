@@ -416,28 +416,33 @@ static int Carray_get(lua_State* L)
     } else {
         index2 = index1;
     }
-    size_t count = udata->impl->elementCount;
+    size_t totalCount = udata->impl->elementCount;
     if (index1 >= 0) {
         index1 -= 1;
     } else {
-        index1 = count + index1;
+        index1 = totalCount + index1;
     }
     if (index2 >= 0) {
         index2 -= 1;
     } else {
-        index2 = count + index2;
+        index2 = totalCount + index2;
     }
-    if (   0 <= index1 && index1 < count
-        && 0 <= index2 && index2 < count)
+    if (index2 < -1) {
+        index2 = -1;
+    }
+    if (0 <= index1)
     {
         carray_type elementType = udata->impl->type;
         size_t      elementSize = udata->impl->elementSize;
         char* ptr = udata->impl->buffer + index1 * elementSize;
-        const int count = index2 - index1  + 1;
-        int c = count;
+        int count = index2 - index1  + 1;
+        if (index1 + count > totalCount) {
+            count = totalCount - index1;
+        }
         if (count > 0) {
             luaL_checkstack(L, count, NULL);
         }
+        int c = count;
         switch (elementType) {
             case CARRAY_UCHAR: {
                 unsigned char* p = (unsigned char*)ptr;
@@ -505,7 +510,7 @@ static int Carray_get(lua_State* L)
         }
         return count > 0 ? count : 0;
     }
-    return luaL_argerror(L, 2, "index out of bounds");
+    return luaL_argerror(L, 2, "invalid index");
 }
 
 
@@ -646,12 +651,56 @@ static int Carray_set(lua_State* L)
 
 /* ============================================================================================ */
 
+static int Carray_setlen(lua_State* L)
+{
+    CarrayUserData* udata = checkWritableUdata(L, 1);
+    carray*         impl  = udata->impl;
+    size_t       oldCount = impl->elementCount;
+
+    lua_Number newCount = luaL_checkinteger(L, 2);    
+    if (newCount < 0)  newCount = 0;
+    
+    if (newCount <= oldCount) {
+        impl->elementCount = newCount;
+    } else {
+        if (!carray_capi_impl.resizeCarray(impl, newCount, false)) {
+            return luaL_error(L, "resizing carray failed");
+        }
+    }
+    if (newCount > oldCount) {
+        size_t n = newCount - oldCount;
+        memset(impl->buffer + impl->elementSize * oldCount, 0, impl->elementSize * n);
+    }
+    return 0;
+}
+
+/* ============================================================================================ */
+
+static int Carray_reset(lua_State* L)
+{
+    CarrayUserData* udata = checkWritableUdata(L, 1);
+    bool shrink = false;
+    if (!lua_isnoneornil(L, 2)) {
+        luaL_checktype(L, 2, LUA_TBOOLEAN);
+        shrink = lua_toboolean(L, 2);
+    }
+    if (!shrink) {
+        udata->impl->elementCount = 0;
+    } else {
+        carray_capi_impl.resizeCarray(udata->impl, 0, true);
+    }
+    return 0;    
+}
+
+/* ============================================================================================ */
+
 static int Carray_type(lua_State* L)
 {
     CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
     lua_pushstring(L, typeToString(udata->impl));
     return 1;
 }
+
 /* ============================================================================================ */
 
 static int Carray_basetype(lua_State* L)
@@ -684,8 +733,7 @@ static int Carray_writable(lua_State* L)
 static int Carray_resizable(lua_State* L)
 {
     CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
-    // TODO future implementation
-    lua_pushboolean(L, false);
+    lua_pushboolean(L, udata->impl && !(udata->impl->attr & CARRAY_READONLY) && !udata->impl->isRef);
     return 1;
 }
 
@@ -724,6 +772,8 @@ static const luaL_Reg CarrayMethods[] =
     { "len",        Carray_len       },
     { "get",        Carray_get       },
     { "set",        Carray_set       },
+    { "setlen",     Carray_setlen    },
+    { "reset",      Carray_reset     },
     { "tostring",   Carray_getstring },
     { "setstring",  Carray_setstring },
     { "type",       Carray_type      },

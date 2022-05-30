@@ -1,5 +1,7 @@
 # lua-carray 
 [![Licence](http://img.shields.io/badge/Licence-MIT-brightgreen.svg)](LICENSE)
+[![build status](https://github.com/osch/lua-carray/workflows/test/badge.svg)](https://github.com/osch/lua-carray/actions/workflows/test.yml)
+[![Build status](https://ci.appveyor.com/api/projects/status/v8t6rsf45dwt60pl/branch/master?svg=true)](https://ci.appveyor.com/project/osch/lua-carray/branch/master)
 [![Install](https://img.shields.io/badge/Install-LuaRocks-brightgreen.svg)](https://luarocks.org/modules/osch/carray)
 
 <!-- ---------------------------------------------------------------------------------------- -->
