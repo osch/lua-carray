@@ -1,4 +1,4 @@
-local carray = require"carray"
+local carray = require("carray")
 
 local a = carray.new("int", 10)
 
@@ -32,14 +32,13 @@ assert(x == 202)
 assert(y == 203)
 assert(z == 204)
 
-local c = carray.new("char", 10)
-c:setstring(1, "1234567890")
+local c = carray.new("char"):add("1234567890")
 
 assert(c:get(1) == string.byte("1"))
 assert(c:tostring() == "1234567890")
-assert(c:tostring(1) == "1")
+assert(c:tostring(1,1) == "1")
 assert(c:tostring(2,4) == "234")
 
-c:setstring(4, "abc")
+c:set(4, "ab", string.byte("c"))
 assert(c:tostring() == "123abc7890")
 

@@ -10,7 +10,7 @@
 struct carray
 {
     AtomicCounter usageCounter;
-    carray_type   type;
+    carray_type   elementType;
     carray_attr   attr;
     size_t        elementSize;
     bool          isInteger;

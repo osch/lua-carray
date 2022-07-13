@@ -10,7 +10,7 @@
 
 /* ============================================================================================ */
 
-static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data,
+static carray* internalNewCarray(lua_State* L, carray_type elementType, carray_attr attr, size_t elementCount, void** data,
                                  void* dataRef, void (*releaseCallback)(void* dataRef, size_t elementCount))
 {
     size_t elementSize = 0;
@@ -18,7 +18,7 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
     bool   isInteger   = false;
     bool   isFloat     = false;
     
-    switch (type) {
+    switch (elementType) {
         case CARRAY_SCHAR:   isInteger = true; elementSize = sizeof(signed char); break;
         case CARRAY_UCHAR:   isInteger = true; elementSize = sizeof(unsigned char); isUnsigned = true; break;
         
@@ -55,7 +55,7 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
     }
     memset(udata->impl, 0, sizeof(carray));
     udata->impl->usageCounter = 1;
-    udata->impl->type         = type;
+    udata->impl->elementType  = elementType;
     udata->impl->attr         = attr;
     udata->impl->elementSize  = elementSize;
     udata->impl->isInteger    = isInteger;
@@ -87,17 +87,17 @@ static carray* internalNewCarray(lua_State* L, carray_type type, carray_attr att
 
 /* ============================================================================================ */
 
-static carray* newCarray(lua_State* L, carray_type type, carray_attr attr, size_t elementCount, void** data)
+static carray* newCarray(lua_State* L, carray_type elementType, carray_attr attr, size_t elementCount, void** data)
 {
-    return internalNewCarray(L, type, attr, elementCount, data, NULL, NULL);
+    return internalNewCarray(L, elementType, attr, elementCount, data, NULL, NULL);
 }
 
 /* ============================================================================================ */
 
-static carray* newCarrayRef(lua_State* L, carray_type type, carray_attr attr, void* dataRef, size_t elementCount,
+static carray* newCarrayRef(lua_State* L, carray_type elementType, carray_attr attr, void* dataRef, size_t elementCount,
                             void (*releaseCallback)(void* dataRef, size_t elementCount))
 {
-    return internalNewCarray(L, type, attr, elementCount, NULL, (void*)dataRef, releaseCallback);
+    return internalNewCarray(L, elementType, attr, elementCount, NULL, (void*)dataRef, releaseCallback);
 }
 
 /* ============================================================================================ */
@@ -114,7 +114,7 @@ static const carray* toReadableCarray(lua_State* L, int index, carray_info* info
             if (info) {
                 memset(info, 0, sizeof(carray_info));
                 if (udata->impl) {
-                    info->type            = udata->impl->type;
+                    info->elementType     = udata->impl->elementType;
                     info->attr            = udata->impl->attr;
                     info->elementSize     = udata->impl->elementSize;
                     info->elementCount    = udata->impl->elementCount;
@@ -142,7 +142,7 @@ static carray* toWritableCarray(lua_State* L, int index, carray_info* info)
             if (info) {
                 memset(info, 0, sizeof(carray_info));
                 if (udata->impl) {
-                    info->type         = udata->impl->type;
+                    info->elementType  = udata->impl->elementType;
                     info->attr         = udata->impl->attr;
                     info->elementSize  = udata->impl->elementSize;
                     info->elementCount = udata->impl->elementCount;
@@ -195,7 +195,7 @@ static void* getWritableElementPtr(carray* impl, size_t offset, size_t count)
              && 0 <= offset && offset < impl->elementCount
              && 0 <  count  && offset + count <= impl->elementCount)
     {
-        return impl->buffer;
+        return impl->buffer + offset * impl->elementSize;;
     }
     return NULL;
 }
@@ -209,28 +209,39 @@ static const void* getReadableElementPtr(const carray* array, size_t offset, siz
     if (impl && 0 <= offset && offset < impl->elementCount
              && 0 <  count  && offset + count <= impl->elementCount)
     {
-        return impl->buffer;
+        return impl->buffer + offset * impl->elementSize;
     }
     return NULL;
 }
 
 /* ============================================================================================ */
 
-static void* resizeCarray(carray* impl, size_t newCount, int shrinkCapacity)
+static void* resizeCarray(carray* impl, size_t newCount, int reservePercent)
 {
     if (!impl->isRef && !(impl->attr & CARRAY_READONLY)) {
-        if (newCount > 0 || !shrinkCapacity) {
-            if (  (newCount <  impl->elementCapacity && !shrinkCapacity) 
+        if (newCount > 0 || reservePercent >= 0) {
+            if (  (newCount <  impl->elementCapacity && reservePercent >= 0) 
                 || newCount == impl->elementCapacity) 
             {
                 impl->elementCount = newCount;
                 return impl->buffer;
             } else {
-                char* newBuffer = realloc(impl->buffer, impl->elementSize * newCount);
+                size_t newCap = newCount;
+                if (newCap > impl->elementCapacity && reservePercent > 0) {
+                    size_t newCap2 = newCap + (newCap * reservePercent) / 100;
+                    if (newCap2 > newCap) {
+                        newCap = newCap2;
+                    }
+                }
+                char* newBuffer = realloc(impl->buffer, impl->elementSize * newCap);
+                if (!newBuffer && newCap > newCount) {
+                    newCap = newCount;
+                    newBuffer = realloc(impl->buffer, impl->elementSize * newCap);
+                }
                 if (newBuffer) {
                     impl->buffer          = newBuffer;
                     impl->elementCount    = newCount;
-                    impl->elementCapacity = newCount;
+                    impl->elementCapacity = newCap;
                     return newBuffer;
                 }
                 else if (newCount < impl->elementCapacity) {
@@ -239,7 +250,7 @@ static void* resizeCarray(carray* impl, size_t newCount, int shrinkCapacity)
                 }
             }
         } else {
-            // newCount == 0 && shrinkCapacity
+            // newCount == 0 && reservePercent < 0
             if (impl->buffer) {
                 free(impl->buffer);
                 impl->buffer = NULL;
@@ -249,6 +260,48 @@ static void* resizeCarray(carray* impl, size_t newCount, int shrinkCapacity)
         }
     }
     return NULL;
+}
+
+/* ============================================================================================ */
+
+static void* insertElements(carray* impl, size_t pos, size_t count, int reservePercent)
+{
+    if (!impl->isRef && !(impl->attr & CARRAY_READONLY) 
+        && 0 <= pos && pos <= impl->elementCount && count > 0) 
+    {
+        size_t oldCount = impl->elementCount;
+        size_t newCount = oldCount + count;
+        char* data = resizeCarray(impl, newCount, reservePercent);
+        if (data) {
+            char* p0 = data + pos * impl->elementSize;
+            if (pos < oldCount) {
+                memmove(p0 + count * impl->elementSize, p0, (oldCount - pos) * impl->elementSize);
+            }
+            return p0;
+        }
+    }
+    return NULL;
+}
+
+/* ============================================================================================ */
+
+static void removeElements(carray* impl, size_t pos, size_t count, int reservePercent)
+{
+    if (!impl->isRef && !(impl->attr & CARRAY_READONLY) 
+        && 0 <= pos && pos <= impl->elementCount && count > 0) 
+    {
+        size_t pos2 = pos + count;
+        if (pos2 > impl->elementCount) {
+            pos2 = impl->elementCount;
+        }
+        if (pos2 > pos) {
+            void* p1 = impl->buffer + pos  * impl->elementSize;
+            void* p2 = impl->buffer + pos2 * impl->elementSize;
+            memmove(p1, p2, (impl->elementCount - pos2) * impl->elementSize);
+            size_t newCount = impl->elementCount - (pos2 - pos);
+            resizeCarray(impl, newCount, reservePercent);
+        }
+    }
 }
 
 /* ============================================================================================ */
@@ -269,7 +322,9 @@ const carray_capi carray_capi_impl =
     releaseCarray,
     getWritableElementPtr,
     getReadableElementPtr,
-    resizeCarray
+    resizeCarray,
+    insertElements,
+    removeElements
 };
 
 /* ============================================================================================ */
