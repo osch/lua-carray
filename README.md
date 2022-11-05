@@ -54,7 +54,7 @@ assert(x == 202)
 assert(y == 203)
 assert(z == 204)
 
-local c = carray.new("char"):add("1234567890")
+local c = carray.new("char"):append("1234567890")
 
 assert(c:get(1) == string.byte("1"))
 assert(c:tostring() == "1234567890")

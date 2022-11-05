@@ -867,7 +867,7 @@ special:
 
 /* ============================================================================================ */
 
-static int Carray_add(lua_State* L)
+static int Carray_append(lua_State* L)
 {
     int arg = 1;
     CarrayUserData* udata = checkWritableUdata(L, arg++);
@@ -895,7 +895,7 @@ static int Carray_insert(lua_State* L)
 
 /* ============================================================================================ */
 
-static int Carray_addsub(lua_State* L)
+static int Carray_appendsub(lua_State* L)
 {
     int arg = 1;
     carray* impl1 = checkWritableUdata(L, arg++)->impl;
@@ -1311,9 +1311,9 @@ static const luaL_Reg CarrayMethods[] =
     { "len",        Carray_len       },
     { "get",        Carray_get       },
     { "set",        Carray_set       },
-    { "add",        Carray_add       },
+    { "append",     Carray_append    },
     { "insert",     Carray_insert    },
-    { "addsub",     Carray_addsub    },
+    { "appendsub",  Carray_appendsub },
     { "insertsub",  Carray_insertsub },
     { "setsub",     Carray_setsub    },
     { "remove",     Carray_remove    },

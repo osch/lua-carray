@@ -10,10 +10,10 @@
    * [Array Methods](#array-methods)
         * [array:get()](#array_get)
         * [array:set()](#array_set)
-        * [array:add()](#array_add)
+        * [array:append()](#array_append)
         * [array:insert()](#array_insert)
         * [array:setsub()](#array_setsub)
-        * [array:addsub()](#array_addsub)
+        * [array:appendsub()](#array_appendsub)
         * [array:insertsub()](#array_insertsub)
         * [array:remove()](#array_remove)
         * [array:len()](#array_len)
@@ -147,14 +147,14 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_add">**`      array:add(...)
+* <a id="array_append">**`      array:append(...)
   `** </a>
 
-  Adds the given elements to the end of the array object.
+  Appends the given elements to the end of the array object.
 
-  * *...*  - list of elements or array objects that are added to the end of the array object.
+  * *...*  - list of elements or array objects that are appended to the end of the array object.
              If the array element type is *signed char* or *unsigned char* 
-             (see [Element Type Names](#element-type-names)), it is also possible to add 
+             (see [Element Type Names](#element-type-names)), it is also possible to append 
              string values.
   
   
@@ -201,23 +201,23 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_addsub">**`      array:addsub(array2, pos1, pos2)
+* <a id="array_appendsub">**`      array:appendsub(array2, pos1, pos2)
   `** </a>
 
-  Adds elements of another array *array2* to the end of the array object.
+  Appends elements of another array *array2* to the end of the array object.
 
   * *array2* - source array.
                If the destination array element type is *signed char* or *unsigned char* 
                (see [Element Type Names](#element-type-names)), it is also possible to give 
                a string value here.
-  * *pos1*   - integer position of the first element to add from *array2*.
-  * *pos2*   - integer position of the last element of *array2* to add.
+  * *pos1*   - integer position of the first element to append from *array2*.
+  * *pos2*   - integer position of the last element of *array2* to append.
   
-  The first element in the array has position 1, i.e. *array:addsub(array2, 1, 3)* adds the 
+  The first element in the array has position 1, i.e. *array:appendsub(array2, 1, 3)* appends the 
   first three elements of *array2* to the array.
 
   *pos1* or *pos2* may be negative to denote positions from behind, e.g. 
-  *array:addsub(array2,-3,-1)* adds the last three elements of *array2* to the array object.
+  *array:appendsub(array2,-3,-1)* appends the last three elements of *array2* to the array object.
   
   
 <!-- ---------------------------------------------------------------------------------------- -->
@@ -341,7 +341,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   `** </a>
   
   Sets or get the reserve count. The reserve count denotes the number of new elements that
-  can be added to the array without the need to re-allocate the array's memory.
+  can be appended to the array without the need to re-allocate the array's memory.
   
   * *count* - optional integer, if greater zero this methods assures that the reserve is at 
               least *count* number of elements. If zero or less the reserve is
