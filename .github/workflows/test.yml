@@ -31,6 +31,7 @@ jobs:
         lua -v
         cd tests
         lua test01.lua
+        lua test02.lua
         cd ../examples
         lua example01.lua
      

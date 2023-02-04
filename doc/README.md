@@ -24,6 +24,8 @@
         * [array:setlen()](#array_setlen)
         * [array:reserve()](#array_reserve)
         * [array:tostring()](#array_tostring)
+        * [array:equals()](#array_equals)
+        * [array:appendfile()](#array_appendfile)
         
 <!-- ---------------------------------------------------------------------------------------- -->
 ##   Overview
@@ -46,7 +48,7 @@ local carray = require("carray")
 ##   Module Functions
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="carray_new">**`  carray.new(type[, count])
+* <a id="carray_new">**`carray.new(type[, count])
   `**</a>
   
   Creates a new array object with the specified element type.
@@ -109,9 +111,17 @@ to [carray.new()](#carray_new).
 
 Array objects can be created by calling the module function [carray.new()](#carray_new).
 
+If not other specified, array methods return the array object to allow method chaining, 
+e.g.
+```lua
+    local a = carray.new("char"):append("testdata:"):appendfile("test1.data")
+```
+creates a new array with data from string and file content and assigns this array to the
+variable *a*.
+
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_get">**`      array:get(pos1[, pos2])
+* <a id="array_get">**`array:get(pos1[, pos2])
   `** </a>
   
   Get elements from the array.
@@ -128,7 +138,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_set">**`      array:set(pos, ...)
+* <a id="array_set">**`array:set(pos, ...)
   `** </a>
 
   Sets the given elements at the specified position of the array object.
@@ -147,7 +157,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_append">**`      array:append(...)
+* <a id="array_append">**`array:append(...)
   `** </a>
 
   Appends the given elements to the end of the array object.
@@ -160,7 +170,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_insert">**`      array:insert(pos, ...)
+* <a id="array_insert">**`array:insert(pos, ...)
   `** </a>
 
   Inserts the given elements at the specified position of the array object.
@@ -175,7 +185,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_setsub">**`      array:setsub(pos0, array2, pos1, pos2)
+* <a id="array_setsub">**`array:setsub(pos0, array2, pos1, pos2)
   `** </a>
 
   Sets elements of another array *array2* to the specified position *pos0*
@@ -201,7 +211,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_appendsub">**`      array:appendsub(array2, pos1, pos2)
+* <a id="array_appendsub">**`array:appendsub(array2, pos1, pos2)
   `** </a>
 
   Appends elements of another array *array2* to the end of the array object.
@@ -222,7 +232,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_insertsub">**`      array:insertsub(pos0, array2, pos1, pos2)
+* <a id="array_insertsub">**`array:insertsub(pos0, array2, pos1, pos2)
   `** </a>
 
   Inserts elements of another array *array2* to the specified position *pos0*
@@ -246,7 +256,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_remove">**`      array:remove(pos1[, pos2])
+* <a id="array_remove">**`array:remove(pos1[, pos2])
   `** </a>
 
   Removes elements from the array.
@@ -264,14 +274,14 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_len">**`      array:len()
+* <a id="array_len">**`array:len()
   `** </a>
 
   Returns the number of elements in the array object.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_type">**`      array:type()
+* <a id="array_type">**`array:type()
   `** </a>
 
   Returns the element type name as string value. Possible values are:
@@ -287,7 +297,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_basetype">**`      array:basetype()
+* <a id="array_basetype">**`array:basetype()
   `** </a>
 
   Returns the element base type name as string value. Possible values are:
@@ -300,7 +310,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_bitwidth">**`      array:bitwidth()
+* <a id="array_bitwidth">**`array:bitwidth()
   `** </a>
 
   Returns the number of bits per element as integer value.
@@ -309,7 +319,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_reset">**`      array:reset([shrink])
+* <a id="array_reset">**`array:reset([shrink])
   `** </a>
   
   Resets the array to length 0.
@@ -321,7 +331,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_setlen">**`      array:setlen(newlen[, shrink])
+* <a id="array_setlen">**`array:setlen(newlen[, shrink])
   `** </a>
 
   Sets how many elements can be stored in the array. 
@@ -337,10 +347,10 @@ Array objects can be created by calling the module function [carray.new()](#carr
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_reserve">**`      array:reserve([count])
+* <a id="array_reserve">**`array:reserve([count])
   `** </a>
   
-  Sets or get the reserve count. The reserve count denotes the number of new elements that
+  Sets or gets the reserve count. The reserve count denotes the number of new elements that
   can be appended to the array without the need to re-allocate the array's memory.
   
   * *count* - optional integer, if greater zero this methods assures that the reserve is at 
@@ -348,11 +358,12 @@ Array objects can be created by calling the module function [carray.new()](#carr
               released, i.e. the allocated memory for this array object is not greater than
               needed for the [arry:len()](#array_len) number of elements in this array.
   
-  This method returns the current reserve count.
+  This method returns the current reserve count if no argument *count* is given, 
+  otherwise the array object itself is returned to allow method chaining.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_tostring">**`      array:tostring([pos1, pos2])
+* <a id="array_tostring">**`array:tostring([pos1, pos2])
   `** </a>
 
   Returns array elements as string value for arrays that have element type *signed char*
@@ -369,6 +380,24 @@ Array objects can be created by calling the module function [carray.new()](#carr
   returns the last three chars of the array as string.
 
   
+<!-- ---------------------------------------------------------------------------------------- -->
+
+* <a id="array_equals">**`array:equals(array2)
+  `** </a>
+
+  Returns *true* if the two arrays are having the same number and type of elements.
+  
+<!-- ---------------------------------------------------------------------------------------- -->
+
+* <a id="array_appendfile">**`array:appendfile(file[, pos])
+  `** </a>
+
+  Appends the content of the given file to the array.
+  
+  * *file* - a file name string or open file handle.
+  * *pos*  - optional integer, the maximal number of elements that are read from the
+             given file.
+
 <!-- ---------------------------------------------------------------------------------------- -->
 
 [Lua]:          https://www.lua.org

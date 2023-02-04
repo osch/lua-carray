@@ -1,4 +1,6 @@
 #include <limits.h>
+#include <stdio.h>
+#include <stddef.h>
 
 #define CARRAY_CAPI_IMPLEMENT_SET_CAPI 1
 #define CARRAY_CAPI_IMPLEMENT_GET_CAPI 1
@@ -1206,7 +1208,8 @@ static int Carray_reserve(lua_State* L)
         else if (newRes <= 0) {
             carray_capi_impl.resizeCarray(impl, currCount, -1);
         }
-        return 0;
+        lua_settop(L, 1);
+        return 1;
     }
     lua_pushinteger(L, impl->elementCapacity - impl->elementCount);
     return 1;
@@ -1278,6 +1281,92 @@ static int Carray_resizable(lua_State* L)
 
 /* ============================================================================================ */
 
+static int Carray_appendfile(lua_State* L)
+{
+    int arg = 1;
+    CarrayUserData* udata = checkWritableUdata(L, arg);
+    carray*         impl  = udata->impl;
+    
+    luaL_Stream* stream = (luaL_Stream*)luaL_testudata(L, ++arg, LUA_FILEHANDLE);
+    FILE* file;
+    if (stream) {
+        file = stream->f;
+        if (!file) {
+            return luaL_argerror(L, arg, "invalid file");
+        }
+    } else {
+        const char* name = lua_tostring(L, arg);
+        if (!name) {
+            luaL_argerror(L, arg, "file handle or name expected");
+        }
+        file = fopen(name, "rb");
+        if (!file) {
+            luaL_argerror(L, arg, "cannot open file");
+        }
+    }
+    lua_Integer maxCount = -1;
+    if (!lua_isnoneornil(L, ++arg)) {
+        maxCount = luaL_checkinteger(L, arg);
+        if (maxCount <= 0) {
+            if (!stream) fclose(file);
+            lua_settop(L, 1);
+            return 1;
+        }
+    }
+    size_t elementSize = impl->elementSize;
+again:;
+    size_t elementCount = impl->elementCount;
+    size_t nitems;
+    if (maxCount > 0) {
+        nitems = maxCount;
+    } else {
+        nitems = impl->elementCapacity - elementCount;
+        if (nitems < 8*1024) {
+            nitems = 8*1024;
+        }
+    }
+    char* data = carray_capi_impl.resizeCarray(impl, elementCount + nitems, 0);
+    if (!data) {
+        if (!stream) fclose(file);
+        return luaL_error(L, "resizing carray failed");
+    }
+    size_t rslt = fread(data + (elementSize * elementCount), elementSize, nitems, file);
+    if (rslt > 0) {
+        impl->elementCount = elementCount + rslt;
+        if (rslt == nitems && maxCount < 0) {
+            goto again;
+        }
+    } else {
+        impl->elementCount = elementCount;
+    }
+    if (rslt < nitems && ferror(file)) {
+        int en = errno;
+        if (!stream) fclose(file);
+        return luaL_error(L, "error reading from file: %s (errno=%d)", strerror(en), en);
+    }
+    if (!stream) fclose(file);
+    lua_settop(L, 1);
+    return 1;
+}
+
+/* ============================================================================================ */
+
+static int Carray_equals(lua_State* L)
+{
+    carray* udata1 = checkReadableUdata(L, 1)->impl;
+    carray* udata2 = checkReadableUdata(L, 2)->impl;
+
+    size_t dataLength = udata1->elementSize * udata1->elementCount;
+
+    lua_pushboolean(L, udata1->elementType  == udata2->elementType
+                   &&  udata1->elementSize  == udata2->elementSize
+                   &&  udata1->elementCount == udata2->elementCount
+                   && (dataLength == 0 || memcmp(udata1->buffer, udata2->buffer, dataLength) == 0));
+    return 1;
+}
+
+/* ============================================================================================ */
+
 static int Carray_toString(lua_State* L)
 {
     CarrayUserData* udata = luaL_checkudata(L, 1, CARRAY_CLASS_NAME);
@@ -1326,6 +1415,8 @@ static const luaL_Reg CarrayMethods[] =
     { "bitwidth",   Carray_bitwidth  },
     { "writable",   Carray_writable  },
     { "resizable",  Carray_resizable },
+    { "equals",     Carray_equals    },
+    { "appendfile", Carray_appendfile },
     { NULL,         NULL } /* sentinel */
 };
 
