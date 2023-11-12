@@ -48,8 +48,8 @@ local carray = require("carray")
 ##   Module Functions
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="carray_new">**`carray.new(type[, count])
-  `**</a>
+* <span id="carray_new">**`carray.new(type[, count])
+  `**</span>
   
   Creates a new array object with the specified element type.
   
@@ -121,8 +121,8 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_get">**`array:get(pos1[, pos2])
-  `** </a>
+* <span id="array_get">**`array:get(pos1[, pos2])
+  `** </span>
   
   Get elements from the array.
   
@@ -138,8 +138,8 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_set">**`array:set(pos, ...)
-  `** </a>
+* <span id="array_set">**`array:set(pos, ...)
+  `** </span>
 
   Sets the given elements at the specified position of the array object.
 
@@ -157,8 +157,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_append">**`array:append(...)
-  `** </a>
+* <span id="array_append">**`array:append(...)
+  `** </span>
 
   Appends the given elements to the end of the array object.
 
@@ -170,8 +170,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_insert">**`array:insert(pos, ...)
-  `** </a>
+* <span id="array_insert">**`array:insert(pos, ...)
+  `** </span>
 
   Inserts the given elements at the specified position of the array object.
 
@@ -185,8 +185,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_setsub">**`array:setsub(pos0, array2, pos1, pos2)
-  `** </a>
+* <span id="array_setsub">**`array:setsub(pos0, array2, pos1, pos2)
+  `** </span>
 
   Sets elements of another array *array2* to the specified position *pos0*
   into the array object.
@@ -211,8 +211,8 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_appendsub">**`array:appendsub(array2, pos1, pos2)
-  `** </a>
+* <span id="array_appendsub">**`array:appendsub(array2, pos1, pos2)
+  `** </span>
 
   Appends elements of another array *array2* to the end of the array object.
 
@@ -232,8 +232,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_insertsub">**`array:insertsub(pos0, array2, pos1, pos2)
-  `** </a>
+* <span id="array_insertsub">**`array:insertsub(pos0, array2, pos1, pos2)
+  `** </span>
 
   Inserts elements of another array *array2* to the specified position *pos0*
   into the array object.
@@ -256,8 +256,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_remove">**`array:remove(pos1[, pos2])
-  `** </a>
+* <span id="array_remove">**`array:remove(pos1[, pos2])
+  `** </span>
 
   Removes elements from the array.
   
@@ -274,15 +274,15 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_len">**`array:len()
-  `** </a>
+* <span id="array_len">**`array:len()
+  `** </span>
 
   Returns the number of elements in the array object.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_type">**`array:type()
-  `** </a>
+* <span id="array_type">**`array:type()
+  `** </span>
 
   Returns the element type name as string value. Possible values are:
   
@@ -297,8 +297,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_basetype">**`array:basetype()
-  `** </a>
+* <span id="array_basetype">**`array:basetype()
+  `** </span>
 
   Returns the element base type name as string value. Possible values are:
   
@@ -310,8 +310,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_bitwidth">**`array:bitwidth()
-  `** </a>
+* <span id="array_bitwidth">**`array:bitwidth()
+  `** </span>
 
   Returns the number of bits per element as integer value.
 
@@ -319,8 +319,8 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_reset">**`array:reset([shrink])
-  `** </a>
+* <span id="array_reset">**`array:reset([shrink])
+  `** </span>
   
   Resets the array to length 0.
   
@@ -331,8 +331,8 @@ variable *a*.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_setlen">**`array:setlen(newlen[, shrink])
-  `** </a>
+* <span id="array_setlen">**`array:setlen(newlen[, shrink])
+  `** </span>
 
   Sets how many elements can be stored in the array. 
   
@@ -347,8 +347,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_reserve">**`array:reserve([count])
-  `** </a>
+* <span id="array_reserve">**`array:reserve([count])
+  `** </span>
   
   Sets or gets the reserve count. The reserve count denotes the number of new elements that
   can be appended to the array without the need to re-allocate the array's memory.
@@ -363,8 +363,8 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_tostring">**`array:tostring([pos1, pos2])
-  `** </a>
+* <span id="array_tostring">**`array:tostring([pos1, pos2])
+  `** </span>
 
   Returns array elements as string value for arrays that have element type *signed char*
   or *unsigned char*, see also [Element Type Names](#element-type-names).
@@ -382,15 +382,15 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_equals">**`array:equals(array2)
-  `** </a>
+* <span id="array_equals">**`array:equals(array2)
+  `** </span>
 
   Returns *true* if the two arrays are having the same number and type of elements.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_appendfile">**`array:appendfile(file[, max])
-  `** </a>
+* <span id="array_appendfile">**`array:appendfile(file[, max])
+  `** </span>
 
   Appends the content of the given file to the array.
   
