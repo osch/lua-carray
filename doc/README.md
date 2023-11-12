@@ -114,7 +114,7 @@ Array objects can be created by calling the module function [carray.new()](#carr
 If not other specified, array methods return the array object to allow method chaining, 
 e.g.
 ```lua
-    local a = carray.new("char"):append("testdata:"):appendfile("test1.data")
+    local a = carray.new("char"):append("testdata:")
 ```
 creates a new array with data from string and file content and assigns this array to the
 variable *a*.
@@ -389,14 +389,16 @@ variable *a*.
   
 <!-- ---------------------------------------------------------------------------------------- -->
 
-* <a id="array_appendfile">**`array:appendfile(file[, pos])
+* <a id="array_appendfile">**`array:appendfile(file[, max])
   `** </a>
 
   Appends the content of the given file to the array.
   
   * *file* - a file name string or open file handle.
-  * *pos*  - optional integer, the maximal number of elements that are read from the
+  * *max*  - optional integer, the maximal number of elements that are read from the
              given file.
+
+  Returns the number of elements that were appended.
 
 <!-- ---------------------------------------------------------------------------------------- -->
 

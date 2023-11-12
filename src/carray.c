@@ -1287,36 +1287,63 @@ static int Carray_appendfile(lua_State* L)
     CarrayUserData* udata = checkWritableUdata(L, arg);
     carray*         impl  = udata->impl;
     
-    luaL_Stream* stream = (luaL_Stream*)luaL_testudata(L, ++arg, LUA_FILEHANDLE);
-    FILE* file;
+    int t = lua_type(L, ++arg);
+
+    luaL_Stream* stream = NULL;
+    const char*  fname  = NULL;
+    int          fd     = -1;
+
+    if (t == LUA_TUSERDATA) {
+        stream = (luaL_Stream*)luaL_testudata(L, arg, LUA_FILEHANDLE);
+    }
+    else if (t == LUA_TSTRING) {
+        fname = lua_tostring(L, arg);
+    }
+    else if (t == LUA_TNUMBER) {
+        int isnum = 0;
+        lua_Integer i = lua_tointegerx(L, arg, &isnum);
+        if (isnum) {
+            fd = i;
+        }
+    }
+    FILE* file = NULL;
     if (stream) {
         file = stream->f;
-        if (!file) {
+        if (!file 
+#if LUA_VERSION_NUM >= 502
+           || !stream->closef
+#endif
+        ) {
             return luaL_argerror(L, arg, "invalid file");
         }
-    } else {
-        const char* name = lua_tostring(L, arg);
-        if (!name) {
-            luaL_argerror(L, arg, "file handle or name expected");
-        }
-        file = fopen(name, "rb");
+    }
+    else if (fname) {
+        file = fopen(fname, "rb");
         if (!file) {
-            luaL_argerror(L, arg, "cannot open file");
+            return luaL_argerror(L, arg, lua_pushfstring(L, "cannot open file: %s", fname));
         }
+    }
+    else if (fd < 0) {
+        return luaL_argerror(L, arg, "file handle or name expected");
     }
     lua_Integer maxCount = -1;
     if (!lua_isnoneornil(L, ++arg)) {
         maxCount = luaL_checkinteger(L, arg);
         if (maxCount <= 0) {
-            if (!stream) fclose(file);
-            lua_settop(L, 1);
+            if (file && !stream) fclose(file);
+            lua_pushinteger(L, 0);
             return 1;
         }
     }
     size_t elementSize = impl->elementSize;
+    size_t totalCount = 0;
 again:;
     size_t elementCount = impl->elementCount;
-    size_t nitems;
+#if defined(WIN32) || defined(_WIN32)
+    SSIZE_T nitems;
+#else
+    ssize_t nitems;
+#endif
     if (maxCount > 0) {
         nitems = maxCount;
     } else {
@@ -1327,25 +1354,45 @@ again:;
     }
     char* data = carray_capi_impl.resizeCarray(impl, elementCount + nitems, 0);
     if (!data) {
-        if (!stream) fclose(file);
+        if (file && !stream) fclose(file);
         return luaL_error(L, "resizing carray failed");
     }
-    size_t rslt = fread(data + (elementSize * elementCount), elementSize, nitems, file);
+#if defined(WIN32) || defined(_WIN32)
+    SSIZE_T rslt;
+#else
+    ssize_t rslt;
+#endif
+    if (file) {
+        rslt = fread(   data + (elementSize * elementCount), elementSize, nitems, file);
+    } else {
+        rslt = read(fd, data + (elementSize * elementCount), elementSize * nitems);
+        if (rslt > 0) {
+            rslt = rslt / elementSize;
+        }
+    }
     if (rslt > 0) {
+        totalCount += rslt;
         impl->elementCount = elementCount + rslt;
         if (rslt == nitems && maxCount < 0) {
             goto again;
         }
     } else {
-        impl->elementCount = elementCount;
+        impl->elementCount = elementCount; // reset resizeCarray
     }
-    if (rslt < nitems && ferror(file)) {
-        int en = errno;
-        if (!stream) fclose(file);
-        return luaL_error(L, "error reading from file: %s (errno=%d)", strerror(en), en);
+    if (rslt < nitems) {
+        if (file) {
+            if (ferror(file)) {
+                return luaL_error(L, "error reading from file");
+            }
+        } else {
+            if (rslt < 0) {
+                int en = errno;
+                return luaL_error(L, "error reading from file: %s (errno=%d)", strerror(en), en);
+            }
+        }
     }
-    if (!stream) fclose(file);
-    lua_settop(L, 1);
+    if (file && !stream) fclose(file);
+    lua_pushinteger(L, totalCount);
     return 1;
 }
 
