@@ -7,6 +7,7 @@
 
 #include "util.h"
 #include "carray.h"
+#include "carray_capi.h"
 #include "carray_capi_impl.h"
 
 /* ============================================================================================ */

@@ -18,7 +18,7 @@ else
     add_lua_path="$luacarray_dir/src/?.lua;$luacarray_dir/src/?/init.lua"
     add_lua_cpath="$luacarray_dir/src/build"
 
-    # unset LUA_PATH_5_4 LUA_CPATH_5_4 LUA_PATH_5_3 LUA_CPATH_5_3 LUA_PATH_5_2 LUA_CPATH_5_2 LUA_PATH LUA_CPATH
+    # unset LUA_PATH_5_5 LUA_CPATH_5_5 LUA_PATH_5_4 LUA_CPATH_5_4 LUA_PATH_5_3 LUA_CPATH_5_3 LUA_PATH_5_2 LUA_CPATH_5_2 LUA_PATH LUA_CPATH
 
     default_version=""
     if which lua > /dev/null 2>&1; then
@@ -34,7 +34,7 @@ else
         fi
     fi
 
-    for vers in 5.4 5.3 5.2 5.1; do
+    for vers in 5.5 5.4 5.3 5.2 5.1; do
         lua_cmd=""
         if which lua$vers > /dev/null 2>&1; then
             lua_cmd="lua$vers"
