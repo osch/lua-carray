@@ -1,6 +1,8 @@
 c=require"carray"
 a=c.new"char"
-assert(10==a:appendfile("test02.data"))
+local appended = a:appendfile("test02.data")
+print("appended", appended)
+assert(10 == appended)
 assert(a:len() == 10)
 assert(a:tostring(1,-1) == "123456789\n")
 a:reset():appendfile("test02.data", 2)
