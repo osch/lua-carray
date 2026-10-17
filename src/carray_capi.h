@@ -216,7 +216,14 @@ struct carray_capi
      *
      * Returns pointer to the first element in the array. The caller may read
      * or write newElementCount elements at this pointer.
-     * Returns NULL on failure or if newElementCount == 0.
+     * Returns NULL on failure, i.e. if the array is read-only, references
+     * underlying data managed by the caller (not resizable), or if memory
+     * allocation fails. Shrinking a resizable array never fails.
+     *
+     * If newElementCount == 0 and reservePercent < 0, the buffer is freed and
+     * NULL is returned on success. If newElementCount == 0 and reservePercent >= 0,
+     * the buffer is kept and a valid pointer is returned on success, unless the
+     * array had no buffer at all (capacity 0), which also yields NULL.
      */
     void* (*resizeCarray)(carray* a, size_t newElementCount, int reservePercent);
     
@@ -241,7 +248,7 @@ struct carray_capi
     void* (*insertElements)(carray* a, size_t offset, size_t insertCount, int reservePercent);
 
     /**
-     * Insert Elements.
+     * Remove Elements.
      *
      * offset       - index of the first element to be removed, 0 <= offset < elementCount
      * removeCount  - number of elements to be removed
