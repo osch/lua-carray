@@ -1,5 +1,5 @@
 package = "carray"
-version = "0.0.3-1"
+version = "0.0.4-1"
 local versionNumber = version:gsub("^(.*)-.-$", "%1")
 source = {
   url = "https://github.com/osch/lua-carray/archive/v"..versionNumber..".zip",
