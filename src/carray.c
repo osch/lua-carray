@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <stddef.h>
 
+#if defined(WIN32) || defined(_WIN32)
+    #include <io.h> /* read() */
+#endif
+
 #define CARRAY_CAPI_IMPLEMENT_SET_CAPI 1
 #define CARRAY_CAPI_IMPLEMENT_GET_CAPI 1
 

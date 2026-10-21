@@ -43,3 +43,55 @@ jobs:
         lua test02.lua
         cd ../examples
         lua example01.lua
+
+  # Windows with MinGW gcc in addition to the MSVC runs above: gcc (14+)
+  # rejects constructs that MSVC only warns about, e.g. implicit function
+  # declarations when a Windows header is missing.
+  windows-mingw:
+    name: windows-mingw lua 5.5
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      LR_BIN: luarocks-bin/luarocks-3.13.0-windows-64
+      LUA_SRC: lua-5.5.0/src
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: build Lua 5.5 from source (MinGW)
+      run: |
+        gcc --version | head -1
+        curl -sL https://www.lua.org/ftp/lua-5.5.0.tar.gz -o lua.tar.gz
+        tar xzf lua.tar.gz
+        MAKE_BIN=$(command -v make || command -v mingw32-make)
+        "$MAKE_BIN" -C lua-5.5.0 mingw
+
+    - name: install LuaRocks and build the rock
+      run: |
+        curl -sL https://luarocks.github.io/luarocks/releases/luarocks-3.13.0-windows-64.zip -o lr.zip
+        mkdir luarocks-bin
+        powershell -NoProfile -Command "Expand-Archive -Path lr.zip -DestinationPath luarocks-bin"
+        export PATH="$PWD/$LR_BIN:$PWD/$LUA_SRC:$PATH"
+        luarocks config variables.LUA_INCDIR "lua-5.5.0/src"
+        luarocks config variables.LUA_LIBDIR "lua-5.5.0/src"
+        luarocks config variables.CC gcc
+        luarocks config variables.LD gcc
+        luarocks --lua-version=5.5 --tree lrtree make rockspecs/carray-scm-0.rockspec
+
+    - name: test
+      run: |
+        set -e
+        export PATH="$PWD/$LUA_SRC:$PATH"
+        # native Windows path (D:/a/...) for the native lua.exe; the tests
+        # cd into tests/ and examples/, so relative paths would not do
+        W=$(pwd -W)
+        export LUA_PATH="$W/lrtree/share/lua/5.5/?.lua;$W/lrtree/share/lua/5.5/?/init.lua;;"
+        export LUA_CPATH="$W/lrtree/lib/lua/5.5/?.dll;;"
+        lua -v
+        cd tests
+        lua test01.lua
+        lua test02.lua
+        cd ../examples
+        lua example01.lua
