@@ -1,5 +1,5 @@
 package = "carray"
-version = "0.0.4-1"
+version = "0.0.5-1"
 local versionNumber = version:gsub("^(.*)-.-$", "%1")
 source = {
   url = "https://github.com/osch/lua-carray/archive/v"..versionNumber..".zip",
@@ -30,5 +30,8 @@ build = {
       },
       defines = { "CARRAY_VERSION="..versionNumber },
     },
-  }
+  },
+  -- copy no directory: luarocks then installs the top-level README and
+  -- LICENSE files into the rock's doc/ directory
+  copy_directories = {},
 }

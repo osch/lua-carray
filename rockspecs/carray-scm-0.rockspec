@@ -29,5 +29,8 @@ build = {
       },
       defines = { "CARRAY_VERSION="..version:gsub("^(.*)-.-$", "%1") },
     },
-  }
+  },
+  -- copy no directory: luarocks then installs the top-level README and
+  -- LICENSE files into the rock's doc/ directory
+  copy_directories = {},
 }
